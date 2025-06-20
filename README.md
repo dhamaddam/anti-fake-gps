@@ -1,53 +1,69 @@
-# anti-fake-gps
+# AntiFakeGps Plugin for Capacitor
 
-anti fake gps
+Plugin Capacitor untuk mendeteksi apakah perangkat menggunakan Fake GPS (Mock Location) — khusus Android.
 
 ## Install
 
 ```bash
-npm install anti-fake-gps
+npm install @dhamaddam/anti-fake-gps
 npx cap sync
-```
 
-## API
+// src/app/services/location-tracker.service.ts
 
-<docgen-index>
+import { Injectable, NgZone } from '@angular/core';
+import { AlertController } from '@ionic/angular';
+import { AntiFakeGps } from '@dhamaddam/anti-fake-gps';
+import { Geolocation } from '@capacitor/geolocation';
 
-* [`echo(...)`](#echo)
-* [`getMock(...)`](#getmock)
+@Injectable({
+  providedIn: 'root'
+})
+export class LocationTrackerService {
+  public lat: number = 0;
+  public lng: number = 0;
 
-</docgen-index>
+  constructor(
+    public zone: NgZone,
+    private alertCtrl: AlertController
+  ) {}
 
-<docgen-api>
-<!--Update the source file JSDoc comments and rerun docgen to update the docs below-->
+  async presentFakeGpsAlert() {
+    const alert = await this.alertCtrl.create({
+      header: 'Peringatan!',
+      message: 'Kami mendeteksi penggunaan Fake GPS. Silakan nonaktifkan aplikasi tersebut.',
+      buttons: ['OK']
+    });
+    await alert.present();
+  }
 
-### echo(...)
+  async checkMockLocationCapacitor(): Promise<boolean> {
+    try {
+      const position = await Geolocation.getCurrentPosition();
+      const coords = position.coords;
 
-```typescript
-echo(options: { value: string; }) => Promise<{ value: string; }>
-```
+      const result = await AntiFakeGps.getMock({
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        accuracy: coords.accuracy,
+        timestamp: position.timestamp
+      });
 
-| Param         | Type                            |
-| ------------- | ------------------------------- |
-| **`options`** | <code>{ value: string; }</code> |
+      const results = result.results;
+      let isMock = false;
 
-**Returns:** <code>Promise&lt;{ value: string; }&gt;</code>
+      if (Array.isArray(results) && results.length > 0) {
+        isMock = results[0].isMock;
+        console.log('[AntiFakeGps Plugin] isMock:', isMock);
+      } else {
+        console.log('[AntiFakeGps Plugin] results empty or invalid');
+      }
 
---------------------
+      return isMock;
+    } catch (error) {
+      console.error('[AntiFakeGps Plugin] Error:', error);
+      return false;
+    }
+  }
 
-
-### getMock(...)
-
-```typescript
-getMock(options: { latitude: number; longitude: number; accuracy?: number; timestamp?: number; }) => Promise<{ results: any[]; }>
-```
-
-| Param         | Type                                                                                         |
-| ------------- | -------------------------------------------------------------------------------------------- |
-| **`options`** | <code>{ latitude: number; longitude: number; accuracy?: number; timestamp?: number; }</code> |
-
-**Returns:** <code>Promise&lt;{ results: any[]; }&gt;</code>
-
---------------------
-
-</docgen-api>
+  async startTracking(): Promise<{ location: { isFromMockProvider: boolean } }> {
+    const isMock = await this.checkMockLo
